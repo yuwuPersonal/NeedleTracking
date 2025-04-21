@@ -1,13 +1,10 @@
 #%% Import modules
-
+# new features
 import os
 import sys
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
-
-from zipfile import ZipFile
-from urllib.request import urlretrieve
 
 #%% Define utility funcs for bounding box and text annotation
 def drawRectangle(frame, bbox):
