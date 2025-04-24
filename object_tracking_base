@@ -34,7 +34,7 @@ elif tracker_type == "MIL":
 elif tracker_type == "KCF":
     tracker = cv.TrackerKCF.create()
 elif tracker_type == "CSRT":
-    tracker = cv.TrackerCSRT.create()
+    tracker = cv.legacy_TrackerCSRT.create()
 elif tracker_type == "TLD":
     tracker = cv.legacy.TrackerTLD.create()
 elif tracker_type == "MEDIANFLOW":
@@ -55,9 +55,10 @@ if not video.isOpened():
 else:
     width = int(video.get(cv.CAP_PROP_FRAME_WIDTH))
     height = int(video.get(cv.CAP_PROP_FRAME_HEIGHT))
+    frame_rate = int(video.get(cv.CAP_PROP_FPS))
 
 video_out_filename = "needle_sample_{}.mp4".format(tracker_type)
-video_out = cv.VideoWriter(video_out_filename, cv.VideoWriter_fourcc(*"XVID"), 10, (width, height))
+video_out = cv.VideoWriter(video_out_filename, cv.VideoWriter_fourcc(*"XVID"), frame_rate, (width, height))
 
 #%% Define bounding box
 n_boxes = 4
@@ -83,6 +84,8 @@ multi_tracker = cv.legacy_MultiTracker.create()
 for n, bbox in enumerate(bboxes):
     multi_tracker.add(cv.legacy_TrackerCSRT.create(), frame, bbox)
 
+center_per_frame = []
+
 while True:
     ok, frame = video.read()
     if not ok:
@@ -93,50 +96,49 @@ while True:
     if ok:
         for bbox in bboxes_pred:
             drawRectangle(frame, bbox)
+
+        center_x = bboxes_pred[:, 0] + bboxes_pred[:, 2]/2
+        center_y = bboxes_pred[:, 1] + bboxes_pred[:, 3]/2
+        center_x, center_y = center_x[..., np.newaxis], center_y[..., np.newaxis]
+        centers = np.hstack((center_x, center_y))
+
+        center_per_frame.append(centers)
     else:
         drawText(frame, "Tracker failure detected", (80, 140), (0, 0, 255))
     
     video_out.write(frame)
 
+center_per_frame = np.array(center_per_frame)
+np.save("center_per_frame.npy", center_per_frame)
 video.release()
 video_out.release()
 
+#%% load and process the tip position data
+tip_frame = np.load("center_per_frame.npy")
+tip_frame.shape
 
+#%% test script only for the math
+center_x = bboxes_pred[:, 0] + bboxes_pred[:, 2]/2
+center_y = bboxes_pred[:, 1] + bboxes_pred[:, 3]/2
+centers = np.hstack((center_x[..., np.newaxis], center_y[..., np.newaxis]))
 
-#%% Initialize the tracker with first frame and bbox
-ok = tracker.init(frame, bbox)
-print(ok)
+center_x[..., np.newaxis]
+centers
+# %%
+center_per_frame = []
+center_x = bboxes_pred[:, 0] + bboxes_pred[:, 2]/2
+center_y = bboxes_pred[:, 1] + bboxes_pred[:, 3]/2
+center_x, center_y = center_x[..., np.newaxis], center_y[..., np.newaxis]
+centers = np.hstack((center_x, center_y))
 
-#%% Read frame and track object
-while True:
-    ok, frame = video.read()
-    if not ok:
-        break
-    
-    # start the timer
-    timer = cv.getTickCount()
-    # update the tracker, asking it to predict current bbox
-    ok, bbox = tracker.update(frame)
-    # calculate the fps
-    fps = cv.getTickFrequency() / (cv.getTickCount() - timer)
+for _ in range(4):
+    center_per_frame.append(centers)
 
-    # draw bounding box and text
-    if ok:
-        drawRectangle(frame, bbox)
-    else:
-        drawText(frame, "Tracker failure detected", (80, 140), (0, 0, 255))
+center_per_frame = np.array(center_per_frame)
+# center_per_frame = np.stack((center_per_frame, centers, centers), axis=0)
+center_per_frame.shape
 
-    drawText(frame, tracker_type + " Tracker", (80, 60))
-    drawText(frame, "FPS: " + str(int(fps)), (80, 100))
-
-    # write frame to the output video
-    video_out.write(frame)
-
-video.release()
-video_out.release()
-
-
-
-
-
+# %%
+x = np.load("test.npy")
+x.shape
 # %%
